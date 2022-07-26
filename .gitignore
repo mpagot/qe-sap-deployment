@@ -1,6 +1,6 @@
 venv/
 secret/
-inventory.yam
+inventory.yaml
 terraform/aws/.terraform
 terraform/aws/terraform.tfstate*
 terraform/aws/terraform.tfvars
@@ -21,4 +21,4 @@ ansible/playbooks/roles/sap_storage
 ansible/playbooks/go.sh
 ansible/playbooks/destroy.sh
 ansible/playbooks/vars/azure_hana_media.yaml
-terraform/azure/.terraform.lock.hcl
+terraform/**/*.lock.hcl
