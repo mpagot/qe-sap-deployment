@@ -76,7 +76,7 @@ fi
 echo "-----------------------------------------"
 pwd
 ls -lai *.sh
-source variables.sh
+. ./variables.sh
 echo "-----------------------------------------"
 
 TerraformPath="./terraform/${PROVIDER}"
