@@ -108,6 +108,7 @@ ssh-add -v "${ssh_key}"
 if [ ${quite} -eq 1 ]
 then
   export ANSIBLE_NOCOLOR=True
+  export ANSIBLE_LOG_PATH="$(pwd)/ansible.destroy.log"
 fi
 
 ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/deregister.yaml
