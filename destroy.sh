@@ -9,6 +9,7 @@ function usage {
 
 Options
   k - SSH key: private SSH key that will be used to access the VM
+  q - robustness adaptations to execute the script in openQA
   v - verbose mode
   h - print this help
 
@@ -17,7 +18,7 @@ Example:
 " >&2
 }
 
-while getopts ":vhk:" options
+while getopts ":vhqk:" options
   do
     case "${options}"
       in
@@ -30,6 +31,9 @@ while getopts ":vhk:" options
            ;;
         k)
           ssh_key="${OPTARG}"
+          ;;
+        q)
+          quite=1
           ;;
         \?)
           echo "Invalid option: -${OPTARG}" >&2
@@ -47,26 +51,31 @@ while getopts ":vhk:" options
 done
 
 if [ -z "$1" ]
-  then
-    usage
-    exit 0
+then
+  usage
+  exit 0
 fi
 
 if [ -z "${ssh_key}" ]
-  then
-    echo "ssh key must be set"
-    error=1
+then
+  echo "ssh key must be set"
+  error=1
+fi
+
+if [ -z "${quite}" ]
+then
+  quite=0
 fi
 
 if [ ! -f "${ssh_key}" ]
-  then
-    echo "provided ssh key file couldn't be found"
-    error=1
+then
+  echo "provided ssh key file couldn't be found"
+  error=1
 fi
 
 if [ -n "${error}" ]
-  then
-    exit 1
+then
+  exit 1
 fi
 
 . ./variables.sh
@@ -96,7 +105,17 @@ fi
 
 ssh-add -v "${ssh_key}"
 
+if [ ${quite} -eq 1 ]
+then
+  export ANSIBLE_NOCOLOR=True
+fi
+
 ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/deregister.yaml
 
 ### TERRAFORM BIT ###
-terraform -chdir="${TerraformPath}" destroy -auto-approve
+if [ ${quite} -eq 1 ]
+then
+  terraform -chdir="${TerraformPath}" destroy -auto-approve -no-color
+else
+  terraform -chdir="${TerraformPath}" destroy -auto-approve
+fi
