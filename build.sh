@@ -73,11 +73,7 @@ if [ -n "${error}" ]
     exit 1
 fi
 
-echo "-----------------------------------------"
-pwd
-ls -lai *.sh
 . ./variables.sh
-echo "-----------------------------------------"
 
 TerraformPath="./terraform/${PROVIDER}"
 AnsFlgs="-i ${TerraformPath}/inventory.yaml"

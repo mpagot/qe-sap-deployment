@@ -1,11 +1,6 @@
 #!/bin/sh
 
-function ErrChk() {
-  if [[ $? -ne 0 ]] ; then
-    echo "Command failed"
-    exit 1
-  fi
-}
+set -e
 
 function usage {
   echo "Usage:
@@ -74,8 +69,7 @@ if [ -n "${error}" ]
     exit 1
 fi
 
-source variables.sh
-ErrChk
+. ./variables.sh
 
 TerraformPath="./terraform/${PROVIDER}"
 AnsFlgs="-i ${TerraformPath}/inventory.yaml"
@@ -101,11 +95,8 @@ else
 fi
 
 ssh-add -v "${ssh_key}"
-ErrChk
 
 ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/deregister.yaml
-#ErrChk
 
 ### TERRAFORM BIT ###
 terraform -chdir="${TerraformPath}" destroy -auto-approve
-ErrChk
