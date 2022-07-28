@@ -126,7 +126,8 @@ ssh-add -v "${ssh_key}"
 if [ ${quite} -eq 1 ]
 then
   export ANSIBLE_NOCOLOR=True
-  export ANSIBLE_LOG_PATH="$(pwd)/ansible.build.log"
+  #export ANSIBLE_LOG_PATH="$(pwd)/ansible.build.log"
+  export ANSIBLE_LOG_PATH="$(pwd)/ansible.build.{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log"
 fi
 
 # Accept new ssh keys for ansible-controlled hosts
