@@ -2,12 +2,17 @@
 
 venv/
 secret/
+variables.sh
 
 terraform/**/.terraform
 terraform.tfstate*
 terraform.tfvars
 terraform/**/*.lock.hcl
 terraform.*.log
+terraform/azure/plan.zip
+terraform.apply.log
+terraform.init.log
+terraform.plan.log
 
 inventory.yaml
 ansible/playbooks/tmp
@@ -15,4 +20,6 @@ ansible/playbooks/roles/sap_storage
 ansible/playbooks/go.sh
 ansible/playbooks/destroy.sh
 ansible/playbooks/vars/azure_hana_media.yaml
-variables.sh
+
+oldbuild.sh
+olddestroy.sh
