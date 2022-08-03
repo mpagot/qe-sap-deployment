@@ -147,8 +147,9 @@ fi
 ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/pre-cluster.yaml
 ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/sap-hana-preconfigure.yaml -e "use_sapconf=${SAPCONF}"
 ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/cluster_sbd_prep.yaml
-ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/sap-hana-storage.yaml 
-ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/sap-hana-download-media.yaml 
-ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/sap-hana-install.yaml 
+ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/sap-hana-storage.yaml
+ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/sap-hana-download-media.yaml
+ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/sap-hana-install.yaml
 ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/sap-hana-system-replication.yaml
 ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/sap-hana-system-replication-hooks.yaml
+ansible-playbook ${AnsFlgs} ${AnsPlybkPath}/sap-hana-cluster.yaml
