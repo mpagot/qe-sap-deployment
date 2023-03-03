@@ -329,8 +329,8 @@
     - is_primary
     - reg_vip_location.stdout | trim | split(' ') | last != primary_hostname
   until: reg_vip_location2.stdout | trim | split(' ') | last == primary_hostname
-  retries: 10
-  delay: 6
+  retries: 15
+  delay: 10
 
 - name: Clear the move constraint
   # TODO Contains hardcoded SID and instance number that should be based on a variable
