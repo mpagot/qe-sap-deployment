@@ -1,0 +1,31 @@
+---
+- hosts: all
+  remote_user: cloudadmin
+
+  tasks:
+    - name: Get the current process’s real, effective, and saved user ids
+      ansible.builtin.shell: |
+        who
+        id
+        echo "SUDO_USER:${SUDO_USER}"
+      changed_when: no
+      failed_when: false
+
+    - name: Get the current process’s real, effective, and saved user ids when become
+      become: true
+      ansible.builtin.shell: |
+        who
+        id
+        echo "SUDO_USER:${SUDO_USER}"
+      changed_when: no
+      failed_when: false
+
+    - name: Get the current process’s real, effective, and saved user ids when become cloudadmin
+      become: true
+      become_user: cloudadmin
+      ansible.builtin.shell: |
+        who
+        id
+        echo "SUDO_USER:${SUDO_USER}"
+      changed_when: no
+      failed_when: false
