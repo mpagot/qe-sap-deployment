@@ -184,11 +184,14 @@ def main(command_line=None):  # pylint: disable=too-many-return-statements
             destroy=parsed_args.destroy,
             profile=parsed_args.profile
         )
+        log.error("This ia a -- Missing sudo password -- simulation.")
+        res = Status(1)
     else:
         res = Status(f"Unknown command:{parsed_args.command}")
 
     if res != 0:
         log.error(res.msg)
+
 
     return res
 
