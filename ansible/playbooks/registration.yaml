@@ -7,6 +7,8 @@
 
   vars:
     use_suseconnect: false  # Set to false unless specified
+    suseconnect_status: {}
+    extensions_status: {}
 
   tasks:
 
@@ -26,7 +28,27 @@
     - name: Check for 'Not Registered'
       ansible.builtin.set_fact:
         not_registered_found: "{{ 'Not Registered' in repos.stdout }}"
-      ignore_errors: true
+      # ignore_errors: true
+
+    - name: Straight convert SUSEConnect -s output into a data structure
+      ansible.builtin.set_fact:
+        suseconnect_status_json: "{{ repos.stdout | from_json }}"
+
+    - name: Convert SUSEConnect -s output into a more usable data structure
+      ansible.builtin.set_fact:
+        suseconnect_status: "{{ suseconnect_status | combine({
+          item['identifier']: {
+            'status': item['status'],
+            'version': item['version'],
+            'arch': item['arch'] }} ) }}"
+      with_items: "{{ repos.stdout | default([]) }}"
+
+    - name: Print suseconnect status
+      ansible.builtin.debug:
+        msg:
+          - "not_registered_found: '{{ not_registered_found }}'"
+          - "suseconnect_status:'{{ suseconnect_status }}'"
+          - "suseconnect_status_json:'{{ suseconnect_status_json }}'"
 
     # Is registercloudguest available?
     # only run it if:
@@ -118,6 +140,35 @@
         state: latest
       when:
         - sles_modules is defined and sles_modules | length > 0
+
+    # Do we have extensions?
+    - name: Check for extensions
+      ansible.builtin.command: SUSEConnect --list-extensions --json
+      register: extensions
+      failed_when: false
+      changed_when: false
+
+    - name: Convert SUSEConnect --list-extensions output into a data structure (json)
+      ansible.builtin.set_fact:
+        extensions_status_json: "{{ extensions.stdout | from_json }}"
+
+    - name: Convert SUSEConnect --list-extensions output into a more usable data structure
+      ansible.builtin.set_fact:
+        extensions_status: "{{ extensions_status | combine( {
+          item['identifier']: {
+            'available': item['available'],
+            'activated': item['activated'],
+            'name': item['name'],
+            'version': item['version'],
+            'arch': item['arch'] }
+          } ) }}"
+      with_items: "{{ extensions.stdout | from_json | community.general.json_query('extensions[*]')  }}"
+
+    - name: Print suseconnect extensions
+      ansible.builtin.debug:
+        msg:
+          - "extensions_status:'{{ extensions_status }}'"
+          - "extensions_status_json:'{{ extensions_status_json }}'"
 
     - name: Add additional authenticated modules [SUSEConnnect]
       ansible.builtin.command: SUSEConnect -p {{ item.key }} -r {{ item.value }}
