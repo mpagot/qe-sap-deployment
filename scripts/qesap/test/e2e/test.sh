@@ -1,5 +1,9 @@
 #!/bin/bash -e
 
+test_split () {
+   echo "---------------------------------------------------------------------"
+}
+
 test_step () {
   echo "#######################################################################"
   echo "# $1"
@@ -12,7 +16,7 @@ test_die () {
 }
 
 test_file () {
-  [[ -f "$1" ]] || test_die "Generated file $1 not found!"
+  [[ -f "$1" ]] || test_die "Generated file '$1' not found!"
 }
 
 test_step "Initial folder structure cleanup and preparation"
@@ -24,18 +28,25 @@ PATH="$(dirname $0)/../..":$PATH
 test_step "First minimal run of qesap.py"
 qesap.py --version || test_die "qesap.py not in PATH"
 
+test_step "Global help"
+qesap.py --help || test_die "qesap.py help failure"
+
 
 echo "#######################################################################"
 echo "###                                                                 ###"
 echo "###                      C O N F I G U R E                          ###"
 echo "###                                                                 ###"
 echo "#######################################################################"
+test_step "Configure help"
+qesap.py configure --help || test_die "qesap.py configure help failure"
+
 test_step "Configure has to fail with empty yaml"
 set +e
 qesap.py --verbose -b ${QESAPROOT} -c test_1.yaml configure
 rc=$?; [[ $rc -ne 0 ]] || test_die "Should exit with zero rc but is rc:$rc"
 set -e
 
+#######################################################################
 test_step "Minimal configure only with Terraform"
 # `qesap.py configure` generate a terraform.tfvars file
 # in the provider folder indicated in the conf.yaml
@@ -52,6 +63,7 @@ grep -qE "fruit_int = 42" "${TEST_TERRAFORM_TFVARS}" || test_die "${TEST_TERRAFO
 grep -qE "fruit_bool = true" "${TEST_TERRAFORM_TFVARS}" || test_die "${TEST_TERRAFORM_TFVARS} generated from test_2.yaml: bool conversion"
 grep -qE "fruit_list.*=.*\[\"10.*\]" "${TEST_TERRAFORM_TFVARS}" || test_die "${TEST_TERRAFORM_TFVARS} generated from test_2.yaml: list conversion"
 
+#######################################################################
 test_step "[test_3.yaml] configure with also Ansible"
 # `qesap.py configure` generate some ansible .yaml files
 TEST_ANSIBLE_VARS="${QESAPROOT}/ansible/playbooks/vars"
@@ -61,6 +73,7 @@ TEST_ANSIBLE_MEDIA="${TEST_ANSIBLE_VARS}/hana_media.yaml"
 test_file "${TEST_ANSIBLE_MEDIA}"
 grep -q corniolo "${TEST_ANSIBLE_MEDIA}" || test_die "${TEST_ANSIBLE_MEDIA} generated from test_3.yaml should contain the corniolo"
 
+#######################################################################
 test_step "[test_5.yaml] Change a setting in place"
 # This test try to reproduce the situation in which
 # a user run `qesap.py conf.yaml` a first time
@@ -70,6 +83,7 @@ test_step "[test_5.yaml] Change a setting in place"
 qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml configure || test_die "Should exit with zero rc but is rc:$?"
 grep -q lampone "${TEST_TERRAFORM_TFVARS}" || test_die "${TEST_TERRAFORM_TFVARS} generated from test_3.yaml should contain the world lampone"
 
+test_split
 # test_5 has everything the same as test_3 except for a terraform variable,
 # verify that running the configure command in place result in the .tfvars file to change
 qesap.py --verbose -b ${QESAPROOT} -c test_5.yaml configure || test_die "Should exit with zero rc but is rc:$?"
@@ -80,6 +94,7 @@ rc=$?; [[ $rc -ne 0 ]] || test_die "${TEST_TERRAFORM_TFVARS} generated from test
 set -e
 grep -q jam "${TEST_TERRAFORM_TFVARS}" || test_die "${TEST_TERRAFORM_TFVARS} generated from test_5.yaml should contain the world jam"
 
+#######################################################################
 test_step "[test_1.yaml] test stdout for configure FAIL"
 # can run without verbosity and if ok print anything
 rm "${QESAPROOT}/test_1_configure.txt" || echo "No ${QESAPROOT}/test_1_configure.txt to delete"
@@ -97,6 +112,7 @@ rc=$?; [[ $rc -eq 0 ]] || test_die "rc:$rc in verbose mode there should be some 
 set -e
 rm "${QESAPROOT}/test_1_configure.txt"
 
+#######################################################################
 test_step "[test_1.yaml] test stdout with verbose for configure FAIL"
 rm "${QESAPROOT}/test_1_configure_verbose.txt" || echo "No ${QESAPROOT}/test_1_configure_verbose.txt to delete"
 set +e
@@ -113,6 +129,7 @@ rc=$?; [[ $rc -eq 0 ]] || test_die "rc:$rc in verbose mode there should be some 
 set -e
 rm "${QESAPROOT}/test_1_configure_verbose.txt"
 
+#######################################################################
 test_step "[test_5.yaml] test stdout for configure PASS"
 rm "${QESAPROOT}/test_5_configure.txt" || echo "No ${QESAPROOT}/test_5_configure.txt to delete"
 # can run without verbosity and if ok print anything
@@ -122,6 +139,7 @@ lines=$(cat "${QESAPROOT}/test_5_configure.txt" | wc -l)
 [[ $lines -eq 0 ]] || test_die "${QESAPROOT}/test_5_configure.txt should be empty but has $lines lines"
 rm "${QESAPROOT}/test_5_configure.txt"
 
+#######################################################################
 test_step "[test_5.yaml] test stdout with verbosity for configure PASS"
 rm "${QESAPROOT}/test_5_configure_verbose.txt" || echo "No ${QESAPROOT}/test_5_configure_verbose.txt to delete"
 # run the same with verbosity
@@ -140,6 +158,10 @@ echo "###                                                                 ###"
 echo "###                      T E R R A F O R M                          ###"
 echo "###                                                                 ###"
 echo "#######################################################################"
+test_step "Terraform help"
+qesap.py terraform --help || test_die "qesap.py terraform help failure"
+
+#######################################################################
 test_step "[test_3.yaml] Terraform FAILURE for invalid code in main.tf"
 # Create an invalid main.tf.
 # The non zero exit code from terraform has to be correctly propagated
@@ -149,18 +171,120 @@ set +e
 qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml terraform
 rc=$?; [[ $rc -ne 0 ]] || test_die "Should exit with non zero rc but is rc:$rc"
 set -e
-rm "${TEST_PROVIDER}/main.tf"
+rm -rf "${TEST_PROVIDER}"
 
+#######################################################################
+test_step "[test_3.yaml] Run dryrun Terraform"
+# correct execution of terraform in dryrun mode:
+# 1. test is checking for 0 exit code
+# 2. for skipping generation of the terraform.tfstate
+# Test is using an empty main.tf placed in the right provider folder
+mkdir -p "${TEST_PROVIDER}"
+touch "${TEST_PROVIDER}/main.tf"
+THIS_LOG="${QESAPROOT}/test_3_terraform.log"
+qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml --dryrun terraform || test_die "test_3.yaml fail on dryrun terraform"
+TEST_TERRAFORM_TFSTATE="${TEST_PROVIDER}/terraform.tfstate"
+[[ ! -f "${TEST_TERRAFORM_TFSTATE}" ]] || test_die "File ${TEST_TERRAFORM_TFVARS} has not to be generated in dryrun mode!"
+
+test_split
+echo "Run the script again collecting the output"
+qesap.py -b ${QESAPROOT} -c test_3.yaml --dryrun terraform  |& tee "${THIS_LOG}"
+for t_step in init plan apply; do
+  echo "***Detect ${t_step} command***"
+  grep -qE "terraform.*${t_step}" \
+    "${THIS_LOG}" || test_die "test_3.yaml terraform dryrun does not have expected ${t_step} command in the output"
+done
+terraform_invocations=$(cat "${THIS_LOG}" | wc -l)
+[[ $terraform_invocations -eq 3 ]] || test_die "terraform dryrun does not emit exactly 3 commands but ${terraform_invocations}"
+[[ ! -f "${TEST_TERRAFORM_TFSTATE}" ]] || test_die "File ${TEST_TERRAFORM_TFVARS} has not to be generated"
+rm ${THIS_LOG}
+rm -rf "${TEST_PROVIDER}"
+
+#######################################################################
 test_step "[test_3.yaml] Run Terraform"
 # correct execution of terraform: test is checking for 0 exit code
 # and for the generation of the terraform.tfstate
 # terraform.tfstate is directly created by the terraform executable
 # Test is using an empty main.tf placed in the right provider folder
-touch "${TEST_PROVIDER}/main.tf"
+mkdir -p "${TEST_PROVIDER}"
+cp main_local.tf "${TEST_PROVIDER}/main.tf"
 qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml terraform || test_die "test_3.yaml fail on terraform"
-TEST_TERRAFORM_TFSTATE="${TEST_PROVIDER}/terraform.tfstate"
 test_file "${TEST_TERRAFORM_TFSTATE}"
+test_file "${TEST_PROVIDER}/foo.bar"
+# do not delete tfstate to lave them fo rthe next test
 
+#######################################################################
+test_step "[test_3.yaml] Run dryrun Terraform destroy"
+# correct execution of terraform destroy in dryrun mode:
+# 1. test is checking for 0 exit code
+THIS_LOG="${QESAPROOT}/test_3_terraform.log"
+qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml --dryrun terraform -d || test_die "test_3.yaml fail on dryrun terraform destroy"
+
+test_split
+echo "Run the script again collecting the output"
+qesap.py -b ${QESAPROOT} -c test_3.yaml --dryrun terraform -d |& tee "${THIS_LOG}"
+for t_step in destroy; do
+  echo "***Detect ${t_step} command***"
+  grep -qE "terraform.*${t_step}" \
+    "${THIS_LOG}" || test_die "test_3.yaml terraform dryrun does not have expected ${t_step} command in the output"
+done
+terraform_invocations=$(cat "${THIS_LOG}" | wc -l)
+[[ $terraform_invocations -eq 1 ]] || test_die "terraform dryrun does not emit exactly 1 command but ${terraform_invocations}"
+test_file "${TEST_TERRAFORM_TFSTATE}"
+test_file "${TEST_PROVIDER}/foo.bar"
+rm ${THIS_LOG}
+
+#######################################################################
+test_step "[test_3.yaml] Run Terraform destroy"
+# correct execution of terraform: test is checking for 0 exit code
+# and for the generation of the terraform.tfstate
+# terraform.tfstate is directly created by the terraform executable
+# Test is using an empty main.tf placed in the right provider folder
+qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml terraform || test_die "test_3.yaml fail on terraform"
+test_file "${TEST_TERRAFORM_TFSTATE}"
+test_file "${TEST_PROVIDER}/foo.bar"
+
+echo "--- NOW DESTROY ---"
+qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml terraform -d || test_die "test_3.yaml fail on terraform destroy"
+test_file "${TEST_TERRAFORM_TFSTATE}"
+[[ ! -f "${TEST_PROVIDER}/foo.bar" ]] || test_die "Deployment resource ${TEST_PROVIDER}/foo.bar} has not to be deleted when calling terraform destroy"
+rm "${TEST_TERRAFORM_TFSTATE}"
+
+#######################################################################
+test_step "[test_3.yaml] Run dryrun Terraform workspace"
+# correct execution of terraform with workspaces in dryrun mode:
+THIS_LOG="${QESAPROOT}/test_3_terraform.log"
+qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml --dryrun terraform -w DONALDUCK || test_die "test_3.yaml fail on dryrun terraform workspace"
+TEST_TERRAFORM_TFSTATE="${TEST_PROVIDER}/terraform.tfstate"
+[[ ! -f "${TEST_TERRAFORM_TFSTATE}" ]] || test_die "File ${TEST_TERRAFORM_TFVARS} has been generated but it should not be in dryrun mode!"
+
+test_split
+echo "Run the script again collecting the output"
+qesap.py -b ${QESAPROOT} -c test_3.yaml --dryrun terraform -w DONALDUCK |& tee "${THIS_LOG}"
+for t_step in init workspace plan apply; do
+  echo "***Detect ${t_step} command***"
+  grep -qE "terraform.*${t_step}" \
+    "${THIS_LOG}" || test_die "test_3.yaml terraform workspace dryrun does not have expected ${t_step} command in the output"
+done
+rm ${THIS_LOG}
+
+#######################################################################
+test_step "[test_3.yaml] Run Terraform with workspaces"
+
+# Test is using an empty main.tf placed in the right provider folder
+qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml terraform -w DONALDUCK || test_die "test_3.yaml fail on terraform with workspace"
+ls -lai "${TEST_PROVIDER}"
+
+[[ ! -f "${TEST_TERRAFORM_TFSTATE}" ]] || test_die "File ${TEST_TERRAFORM_TFVARS} has been generated but it should not"
+[[ -d "${TEST_TERRAFORM_TFSTATE}.d" ]] || test_die "Folder ${TEST_TERRAFORM_TFVARS}.d has not been generated"
+
+#######################################################################
+test_step "[test_3.yaml] Run Terraform destroy with workspaces"
+
+qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml terraform -w DONALDUCK -d || test_die "test_3.yaml fail on terraform destroy with workspace"
+rm -rf "${TEST_TERRAFORM_TFSTATE}.d"
+
+#######################################################################
 test_step "[test_5.yaml] test stdout for terraform PASS"
 # run `qesap.py terraform` both with and without `--verbose`
 # - The stdout in --verbose has to have some strings starting with both DEBUG and INFO
@@ -175,6 +299,7 @@ lines=$(cat "${THIS_LOG}" | wc -l)
 [[ $lines -eq 0 ]] || test_die "${THIS_LOG} should be empty but has $lines lines"
 rm "${THIS_LOG}"
 
+#######################################################################
 test_step "[test_5.yaml] test stdout with verbosity for terraform PASS"
 THIS_LOG="${QESAPROOT}/test_5_terraform_verbose.txt"
 rm "${THIS_LOG}" || echo "No ${THIS_LOG} to delete"
@@ -190,10 +315,11 @@ rc=$?; [[ $rc -eq 0 ]] || test_die "rc:$rc in verbose mode there should be some 
 
 # check for duplicated lines
 lines=$(grep -c "Apply complete!" "${THIS_LOG}")
-[[ $lines -eq 1 ]] || test_die "${THIS_LOG} there's one message in the log repeated $lines times."
+[[ $lines -eq 1 ]] || test_die "${THIS_LOG} there is one message in the log repeated $lines times."
 set -e
 rm "${THIS_LOG}"
 
+#######################################################################
 test_step "[test_5.yaml] test .log.txt file redirection"
 # run `qesap.py terraform` both with and without `--verbose`
 # - `qesap.py terraform` redirect all the terraform stdout and stderr for each of the
@@ -201,13 +327,15 @@ test_step "[test_5.yaml] test .log.txt file redirection"
 
 # run in non verbose mode
 rm terraform.*.log.txt || echo "No terraform.*.log.txt to delete"
-qesap.py -b ${QESAPROOT} -c test_5.yaml terraform
+qesap.py -b ${QESAPROOT} -c test_5.yaml terraform || test_die "Error in terraform execution"
 
 find . -type f -name "terraform.*.log.txt" | grep . || test_die "No generated terraform .log.txt"
 terraform_logs_number=$(find . -type f -name "terraform.*.log.txt" | wc -l)
 [[ $terraform_logs_number -eq 3 ]] || test_die "terraform .log.txt are not 3 files but has ${terraform_logs_number}"
 rm terraform.*.log.txt
 
+#######################################################################
+test_step "[test_5.yaml] test .log.txt file redirection with verbosity"
 # now repeat exactly the same in --verbose mode
 qesap.py --verbose -b ${QESAPROOT} -c test_5.yaml terraform
 
@@ -216,6 +344,7 @@ terraform_logs_number=$(find . -type f -name "terraform.*.log.txt" | wc -l)
 [[ $terraform_logs_number -eq 3 ]] || test_die "terraform .log.txt are not 3 files but has ${terraform_logs_number}"
 rm terraform.*.log.txt
 
+#######################################################################
 test_step "[test_3.yaml] test .log.txt file redirection in case of error"
 rm terraform.*.log.txt || echo "No terraform.*.log.txt to delete"
 echo "SOMETHING INVALID" > "${TEST_PROVIDER}/main.tf"
@@ -236,6 +365,10 @@ echo "###                                                                 ###"
 echo "###                         A N S I B L E                           ###"
 echo "###                                                                 ###"
 echo "#######################################################################"
+test_step "Ansible help"
+qesap.py ansible --help || test_die "qesap.py ansible help failure"
+
+#######################################################################
 test_step "[test_4.yaml] Run Ansible without inventory"
 # Ansible without inventory is expected to fails
 rm "${TEST_PROVIDER}/inventory.yaml" || echo "No old inventory to remove"
@@ -244,6 +377,7 @@ qesap.py --verbose -b ${QESAPROOT} -c test_4.yaml ansible
 rc=$?; [[ $rc -ne 0 ]] || test_die "qesap.py ansible has to fail without inventory.yaml but rc:$rc"
 set -e
 
+#######################################################################
 test_step "[test_3.yaml] Run Ansible with no playbooks"
 # "qesap.py ... ansible" should run doing nothing if no playbooks has to be played
 # Keep in mind that test_3.yaml has no playbooks at all
@@ -253,6 +387,7 @@ qesap.py -b ${QESAPROOT} -c test_3.yaml ansible || test_die "test_3.yaml fail on
 ansible_logs_number=$(find . -type f -name "ansible.*.log.txt" | wc -l)
 [[ $ansible_logs_number -eq 0 ]] || test_die "ansible .log.txt are not 0 files but has ${ansible_logs_number}"
 
+#######################################################################
 test_step "[test_3.yaml] Run Ansible with no playbooks and verbosity"
 # exactly same as the previous one but with "--verbose"
 rm ansible.*.log.txt || echo "Nothing to delete"
@@ -260,6 +395,7 @@ qesap.py --verbose -b ${QESAPROOT} -c test_3.yaml ansible || test_die "test_3.ya
 ansible_logs_number=$(find . -type f -name "ansible.*.log.txt" | wc -l)
 [[ $ansible_logs_number -eq 0 ]] || test_die "ansible .log.txt are not 0 files but has ${ansible_logs_number}"
 
+#######################################################################
 test_step "[test_4.yaml] Run Ansible dryrun"
 THIS_LOG="${QESAPROOT}/ansible.log"
 rm "${THIS_LOG}" || echo "No ${THIS_LOG} to delete"
@@ -268,8 +404,11 @@ cp inventory.yaml "${TEST_PROVIDER}/inventory.yaml"
 qesap.py --verbose -b ${QESAPROOT} -c test_4.yaml configure || test_die "test_4.yaml fail on configure"
 rm ansible.*.log.txt || echo "Nothing to delete"
 qesap.py --verbose -b ${QESAPROOT} -c test_4.yaml --dryrun ansible || test_die "test_4.yaml fail on ansible"
-qesap.py --verbose -b ${QESAPROOT} -c test_4.yaml --dryrun ansible |& tee "${THIS_LOG}"
-grep -E "ansible.*-i.*fragola/inventory.yaml.*all.*ssh-extra-args" \
+
+test_split
+echo "Run the script again collecting the output"
+qesap.py -b ${QESAPROOT} -c test_4.yaml --dryrun ansible |& tee "${THIS_LOG}"
+grep -E "ansible.*-i.*fragola/inventory.yaml.*all.*ssh-extra-args=\".*\"" \
     "${THIS_LOG}" || test_die "test_4.yaml dryrun fails in ansible command"
 grep -E "ansible-playbook.*-i.*fragola/inventory.yaml.*ansible/playbooks/sambuconero.yaml" \
     "${THIS_LOG}" || test_die "test_4.yaml dryrun fails in ansible-playbook command"
@@ -279,6 +418,7 @@ rm "${THIS_LOG}"
 rm "${QESAPROOT}/ansible/playbooks/sambuconero.yaml"
 rm "${TEST_PROVIDER}/inventory.yaml"
 
+#######################################################################
 test_step "[test_4.yaml] Run Ansible dryrun junit"
 # --junit also add a mkdir command at the beginning of the sequence
 THIS_LOG="${QESAPROOT}/ansible.log"
@@ -314,10 +454,15 @@ rm "${QESAPROOT}/ansible/playbooks/sambuconero.yaml"
 rm "${TEST_PROVIDER}/inventory.yaml"
 rm -rf "${THIS_REPORT_DIR}"
 
+#######################################################################
 test_step "[test_4.yaml] Run Ansible PASS"
 cp sambuconero.yaml "${QESAPROOT}/ansible/playbooks/sambuconero.yaml"
 cp inventory.yaml "${TEST_PROVIDER}/inventory.yaml"
+qesap.py --verbose -b ${QESAPROOT} -c test_4.yaml configure || test_die "test_4.yaml fail on configure"
 qesap.py --verbose -b ${QESAPROOT} -c test_4.yaml ansible || test_die "test_4.yaml fail on ansible"
+
+
+#######################################################################
 test_step "[test_4.yaml] Ansible stdout in case of PASS"
 THIS_LOG="${QESAPROOT}/test_4_ansible_pass.txt"
 rm "${THIS_LOG}" || echo "No ${THIS_LOG} to delete"
@@ -329,6 +474,7 @@ rm "${THIS_LOG}"
 rm "${QESAPROOT}/ansible/playbooks/sambuconero.yaml"
 rm "${TEST_PROVIDER}/inventory.yaml"
 
+#######################################################################
 test_step "[test_4.yaml] Ansible stdout with verbosity in case of PASS"
 THIS_LOG="${QESAPROOT}/test_4_ansible_pass_verbose.txt"
 rm "${THIS_LOG}" || echo "No ${THIS_LOG}"
@@ -357,6 +503,7 @@ rm ansible.*.log.txt
 rm "${QESAPROOT}/ansible/playbooks/sambuconero.yaml"
 rm "${TEST_PROVIDER}/inventory.yaml"
 
+#######################################################################
 test_step "[test_6.yaml] Check redirection to file of ansible-playbook logs"
 rm ansible.*.log.txt || echo "Nothing to delete"
 cp sambuconero.yaml "${QESAPROOT}/ansible/playbooks/timbio.yaml"
@@ -374,6 +521,7 @@ rm "${QESAPROOT}/ansible/playbooks/buga.yaml"
 rm "${QESAPROOT}/ansible/playbooks/purace.yaml"
 rm "${TEST_PROVIDER}/inventory.yaml"
 
+#######################################################################
 test_step "[test_7.yaml] Check redirection to file of ansible-playbook logs in case of error in the playbook execution"
 rm ansible.*.log.txt || echo "Nothing to delete"
 cp sambuconero.yaml "${QESAPROOT}/ansible/playbooks/sambuconero.yaml"
@@ -393,6 +541,7 @@ rm "${QESAPROOT}/ansible/playbooks/sambuconero.yaml"
 rm "${QESAPROOT}/ansible/playbooks/marasca.yaml"
 rm "${TEST_PROVIDER}/inventory.yaml"
 
+#######################################################################
 test_step "[test_4.yaml] Run Ansible with --junit"
 THIS_REPORT_DIR="${QESAPROOT}/junit_reports/nested/nested"
 cp sambuconero.yaml "${QESAPROOT}/ansible/playbooks/sambuconero.yaml"
@@ -405,6 +554,7 @@ echo "--> junit_logs_number:${junit_logs_number}"
 find . -type f -name "sambuconero*.xml" -delete
 rm -rf ${THIS_REPORT_DIR}
 
+#######################################################################
 test_step "[test_8.yaml] Run Ansible with --profile"
 rm ansible.*.log.txt || echo "Nothing to delete"
 cp goji.yaml "${QESAPROOT}/ansible/playbooks/"
@@ -416,6 +566,7 @@ set -e
 [[ $time_reports -gt 1 ]] || test_die "ansible profile reports should be at least 1 but is ${time_reports}"
 rm ansible.*.log.txt
 
+#######################################################################
 test_step "[test_8.yaml] Run Ansible with --profile and --junit"
 rm ansible.*.log.txt || echo "Nothing to delete"
 find . -type f -name "goji*.xml" -delete || echo "Nothing to delete"
