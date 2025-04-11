@@ -375,7 +375,42 @@ lines=$(cat "${THIS_LOG}" | wc -l)
 grep -E "SOMETHING INVALID" $THIS_LOG || test_die "Expected content not found in ${THIS_LOG}"
 rm terraform.*.log.txt
 rm "${TEST_PROVIDER}/main.tf"
-touch "${TEST_PROVIDER}/main.tf"
+
+#######################################################################
+test_step "[${QESAP_CFG}] test parallel dryrun"
+
+THIS_LOG="${QESAPROOT}/test_parallel.txt"
+reset_root
+cp main_local_many.tf "${TEST_PROVIDER}/main.tf"
+qesap.py --verbose -b ${QESAPROOT} -c ${QESAP_CFG} --dryrun terraform --parallel 1 |& tee "${THIS_LOG}"
+grep -E "plan.*-parallelism=1" ${THIS_LOG} || test_die "Missing argument -parallelism=1 in terraform plan"
+grep -E "apply.*-parallelism=1" ${THIS_LOG} || test_die "Missing argument -parallelism=1 in terraform apply"
+rm ${THIS_LOG}
+
+#######################################################################
+test_step "[${QESAP_CFG}] test parallel"
+
+# run reference test without parallel
+reset_root
+cp main_local_many.tf "${TEST_PROVIDER}/main.tf"
+qesap.py --verbose -b ${QESAPROOT} -c ${QESAP_CFG} terraform |& tee "${THIS_LOG}"
+grep local-exec ${THIS_LOG}
+for foofile in "${TEST_PROVIDER}"/foo.*; do
+  printf "#${foofile} --> $(cat ${foofile})#\n"
+done
+qesap.py --verbose -b ${QESAPROOT} -c ${QESAP_CFG} terraform -d
+rm ${THIS_LOG}
+
+test_split
+
+reset_root
+cp main_local_many.tf "${TEST_PROVIDER}/main.tf"
+qesap.py --verbose -b ${QESAPROOT} -c ${QESAP_CFG} terraform --parallel 1 |& tee "${THIS_LOG}"
+grep local-exec ${THIS_LOG}
+for foofile in "${TEST_PROVIDER}"/foo.*; do
+  printf "#${foofile} --> $(cat ${foofile})#\n"
+done
+rm ${THIS_LOG}
 
 
 echo "#######################################################################"
