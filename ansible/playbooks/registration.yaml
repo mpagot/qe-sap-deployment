@@ -9,6 +9,14 @@
     use_suseconnect: false  # Set to false unless specified
 
   tasks:
+    - name: Call instance-flavor-check
+      ansible.builtin.command: instance-flavor-check
+      register: flavor
+      until: flavor.rc == 10 or flavor.rc == 11
+      retries: 10
+      delay: 5
+      failed_when: flavor.rc != 10 and flavor.rc != 11
+      changed_when: false
 
     # Pre flight checks
     - name: Check for SUSEConnect binary presence
@@ -23,6 +31,15 @@
       retries: 5
       delay: 120
       failed_when: repos.rc != 0
+      changed_when: false
+
+    - name: Call instance-flavor-check again
+      ansible.builtin.command: instance-flavor-check
+      register: flavor
+      until: flavor.rc == 10 or flavor.rc == 11
+      retries: 10
+      delay: 5
+      failed_when: flavor.rc != 10 and flavor.rc != 11
       changed_when: false
 
     # Check if there are instances of `Not Registered` in it
