@@ -99,6 +99,18 @@ output "netweaver_public_name" {
   value = module.netweaver_node.netweaver_public_name
 }
 
+output "ibsm_count" {
+  value = local.ibsm_count
+}
+
+output "ibsm_vpc" {
+  value = data.google_compute_network.ibsm_vpc[0].self_link
+}
+
+output "ibsm_cird" {
+  value = data.google_compute_subnetwork.ibsm_subnet[0].ip_cidr_range
+}
+
 # Ansible inventory
 resource "local_file" "ansible_inventory" {
   content = templatefile("inventory.tmpl",
