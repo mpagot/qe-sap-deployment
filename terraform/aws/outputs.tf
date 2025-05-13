@@ -45,6 +45,10 @@ output "hana_public_name" {
   value = module.hana_node.hana_public_name
 }
 
+output "hana_name_ebs_devices_id" {
+  value = module.hana_node.hana_name_ebs_devices_id
+}
+
 # Monitoring
 
 output "monitoring_ip" {
