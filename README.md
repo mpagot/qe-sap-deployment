@@ -302,13 +302,7 @@ If Ansible code is added to temporary workaround known issue, already associated
 Use `ansible.builtin.debug` with a specific format.
 
 ```yaml
-msg: "[OSADO][softfail] [bsc or jsc]#[number] [short description]"
-```
-
-Here a complete example:
-
-```yaml
-- name: Example of debug message
+- name: Example of softfail message
       ansible.builtin.debug:
         msg: "[OSADO][softfail] bsc#123456789 Here a generic message with some explanations."
 ```

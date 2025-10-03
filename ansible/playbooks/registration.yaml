@@ -12,6 +12,10 @@
 
   tasks:
 
+    - name: Example of softfail message
+      ansible.builtin.debug:
+        msg: "[OSADO][softfail] bsc#123456789 Here a generic message with some explanations."
+
     # Pre flight checks
     - name: Check for SUSEConnect binary presence
       ansible.builtin.command: which SUSEConnect
