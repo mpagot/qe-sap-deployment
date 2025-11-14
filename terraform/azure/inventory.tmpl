@@ -12,6 +12,7 @@ all:
 %{ for index, value in hana_pip ~}
         ${hana_name[index]}:
           ansible_host: ${value}
+          ansible_user: ${username}
           ansible_python_interpreter: ${hana_remote_python}
 %{ endfor ~}
 %{ if iscsi_enabled }
