@@ -10,6 +10,10 @@
     use_suseconnect: false  # Set to false unless specified
 
   tasks:
+    - name: Fail
+      ansible.builtin.assert:
+        that: false
+        fail_msg: "FATAL: and that is it!!!"
 
     # Pre flight checks
     - name: Check for instance-flavor-check presence
