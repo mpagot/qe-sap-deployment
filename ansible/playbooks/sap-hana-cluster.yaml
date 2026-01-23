@@ -121,3 +121,9 @@
         cmd: cs_wait_for_idle -s 5
       changed_when: false
       when: is_primary
+
+    - name: Fail
+      ansible.builtin.assert:
+        that: false
+        fail_msg: "FATAL: and that is it!!!"
+
