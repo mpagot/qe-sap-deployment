@@ -11,13 +11,73 @@
   retries: 3
   delay: 60
 
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
 - name: Install saptune dependency
   community.general.zypper:
     name: 'patterns-cockpit'
     state: present
   when:
-    - "'saptune' in ansible_facts.packages"
     - ansible_facts.packages['saptune'][0].version is version('3.2.3', '>=')
+    - ansible_distribution_major_version == '16'
+
+# WORKAROUND for SAP Note 3577842 grub:tsx on cloud VMs (TEAM-11186, bsc#1263100).
+#
+# saptune >= 3.2.3 on SLES 16 checks that tsx=auto appears in /proc/cmdline.
+# The check tag [grub:arch=x86_64] has no virt= filter, so it fires on cloud VMs
+# where tsx=auto is absent from the default boot cmdline. On VMs the parameter has
+# no independent security effect — the hypervisor handles TAA mitigation at the host
+# level — but saptune solution verify returns rc=1 without it.
+#
+# Adding a virt= filter is not planned for the short term because cloud providers
+# also offer bare-metal instance types.
+# Until saptune gains finer-grained virtualization detection, we inject
+# tsx=auto into GRUB ourselves so that /proc/cmdline satisfies the check.
+#
+# WHEN TO REMOVE: this block can be removed once ONE of the following happens:
+#   1. saptune adds a virt= filter to the [grub] tsx check in SAP Note 3577842,
+#      so the check no longer fires on hypervisor guests; OR
+#   2. SLES 16 kernels ship with CONFIG_X86_INTEL_TSX_MODE_AUTO=y (as SLES 15 SP7
+#      does since kernel 6.4.0-150700.53.11), making the boot parameter redundant
+#      and saptune presumably scopes the check to specific kernel versions; OR
+#   3. Cloud SLES-for-SAP images start shipping with tsx=auto already in GRUB.
+- name: Check if tsx parameter is already in kernel cmdline
+  ansible.builtin.command: grep -q tsx= /proc/cmdline
+  register: tsx_cmdline_check
+  changed_when: false
+  failed_when: false
+  when:
+    - ansible_facts.packages['saptune'][0].version is version('3.2.3', '>=')
+    - ansible_distribution_major_version == '16'
+
+- name: Add tsx=auto to GRUB defaults for saptune compliance
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT="(?:(?!tsx=).)*)"$'
+    line: '\1 tsx=auto"'
+    backrefs: true
+  register: grub_tsx_update
+  when:
+    - tsx_cmdline_check is not skipped
+    - tsx_cmdline_check.rc != 0
+
+- name: Regenerate GRUB configuration for tsx=auto
+  ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg  # noqa: no-handler
+  changed_when: true
+  when: grub_tsx_update is changed
+
+- name: Reboot to apply tsx=auto kernel parameter
+  ansible.builtin.reboot:  # noqa: no-handler
+    msg: "Reboot initiated by Ansible - GRUB tsx=auto for SAP Note 3577842"
+    reboot_timeout: "{{ use_reboottimeout | default(1200) | int }}"
+    connect_timeout: "{{ use_connecttimeout | default(10) | int }}"
+  when: grub_tsx_update is changed
+
+- name: Regather service facts after reboot
+  ansible.builtin.service_facts:  # noqa: no-handler
+  when: grub_tsx_update is changed
 
 - name: Ensure conflicting services are stopped and disabled
   ansible.builtin.systemd:
