@@ -156,12 +156,6 @@
           changed_when: false
           failed_when: false
 
-        - name: Get guestregister version
-          ansible.builtin.command: guestregister --version
-          register: guestregister_version
-          changed_when: false
-          failed_when: false
-
         - name: Get guestregister package
           ansible.builtin.command: rpm -q cloud-regionsrv-client  # noqa command-instead-of-module
           register: guestregister_package
@@ -263,7 +257,7 @@
       when:
         - recovery_reg_stat.stdout is defined
 
-    - name: Softfail for bcs#1254984
+    - name: Softfail for bsc#1254984
       ansible.builtin.debug:
         msg:
           - "[OSADO][softfail] bsc#1254984"
