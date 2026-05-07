@@ -20,6 +20,7 @@ locals {
 
   hana_lb_rules_ports_secondary = local.create_active_active_infra == 1 ? local.hana_lb_rules_ports : toset([])
   hostname                      = var.common_variables["deployment_name_in_hostname"] ? format("%s-%s", var.common_variables["deployment_name"], var.name) : var.name
+  disk_attachment_delay         = coalesce(var.disk_attachment_delay, "10s")
 }
 
 resource "azurerm_availability_set" "hana-availability-set" {
@@ -450,6 +451,14 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
   }
 }
 
+resource "time_sleep" "wait_after_attachment_01" {
+  create_duration = local.disk_attachment_delay
+
+  depends_on = [
+    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_01
+  ]
+}
+
 resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachment_02" {
   count              = var.hana_count
   managed_disk_id    = azurerm_managed_disk.hana_data_disk_02[count.index].id
@@ -458,7 +467,7 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
   caching            = element(local.disks_caching, 1)
 
   depends_on = [
-    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_01
+    time_sleep.wait_after_attachment_01
   ]
 
   timeouts {
@@ -467,6 +476,14 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
     update = "30m"
     delete = "30m"
   }
+}
+
+resource "time_sleep" "wait_after_attachment_02" {
+  create_duration = local.disk_attachment_delay
+
+  depends_on = [
+    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_02
+  ]
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachment_03" {
@@ -477,7 +494,7 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
   caching            = element(local.disks_caching, 2)
 
   depends_on = [
-    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_02
+    time_sleep.wait_after_attachment_02
   ]
 
   timeouts {
@@ -486,6 +503,14 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
     update = "30m"
     delete = "30m"
   }
+}
+
+resource "time_sleep" "wait_after_attachment_03" {
+  create_duration = local.disk_attachment_delay
+
+  depends_on = [
+    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_03
+  ]
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachment_04" {
@@ -496,7 +521,7 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
   caching            = element(local.disks_caching, 3)
 
   depends_on = [
-    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_03
+    time_sleep.wait_after_attachment_03
   ]
 
   timeouts {
@@ -505,6 +530,14 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
     update = "30m"
     delete = "30m"
   }
+}
+
+resource "time_sleep" "wait_after_attachment_04" {
+  create_duration = local.disk_attachment_delay
+
+  depends_on = [
+    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_04
+  ]
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachment_05" {
@@ -515,7 +548,7 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
   caching            = element(local.disks_caching, 4)
 
   depends_on = [
-    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_04
+    time_sleep.wait_after_attachment_04
   ]
 
   timeouts {
@@ -524,6 +557,14 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
     update = "30m"
     delete = "30m"
   }
+}
+
+resource "time_sleep" "wait_after_attachment_05" {
+  create_duration = local.disk_attachment_delay
+
+  depends_on = [
+    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_05
+  ]
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachment_06" {
@@ -534,7 +575,7 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
   caching            = element(local.disks_caching, 5)
 
   depends_on = [
-    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_05
+    time_sleep.wait_after_attachment_05
   ]
 
   timeouts {
@@ -545,6 +586,14 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
   }
 }
 
+resource "time_sleep" "wait_after_attachment_06" {
+  create_duration = local.disk_attachment_delay
+
+  depends_on = [
+    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_06
+  ]
+}
+
 resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachment_07" {
   count              = var.hana_count
   managed_disk_id    = azurerm_managed_disk.hana_data_disk_07[count.index].id
@@ -553,7 +602,7 @@ resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachme
   caching            = element(local.disks_caching, 6)
 
   depends_on = [
-    azurerm_virtual_machine_data_disk_attachment.hana_data_disk_attachment_06
+    time_sleep.wait_after_attachment_06
   ]
 
   timeouts {
