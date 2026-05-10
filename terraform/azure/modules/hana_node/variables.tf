@@ -168,3 +168,9 @@ variable "majority_maker_ip" {
   description = "Majority Maker server address"
   type        = string
 }
+
+variable "disk_attachment_delay" {
+  type        = string
+  description = "Time to wait between disk attachments."
+  default     = "10s"
+}
