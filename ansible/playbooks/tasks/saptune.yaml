@@ -23,6 +23,46 @@
     - ansible_facts.packages['saptune'][0].version is version('3.2.3', '>=')
     - ansible_distribution_major_version == '16'
 
+# patterns-cockpit is a dependency introduced in saptune 3.2.3 on SLES 16
+# and is expected to be eventually dropped.
+# https://bugzilla.suse.com/show_bug.cgi?id=1262794#c4 and https://bugzilla.suse.com/show_bug.cgi?id=1262794#c5
+- name: Softfail for patterns-cockpit saptune dependency
+  ansible.builtin.debug:
+    msg:
+      - "[OSADO][softfail] bsc#1262794 patterns-cockpit saptune dependency will be eventually removed"
+  when:
+    - ansible_facts.packages['saptune'][0].version is version('3.2.3', '>=')
+    - ansible_distribution_major_version == '16'
+
+- name: Collect TSX diagnostic information
+  ansible.builtin.shell: |
+    set -o pipefail
+    printf '=== CPU: model / hypervisor / virt-type ===\n'
+    lscpu | grep -iE 'Model name|Hypervisor|Virtualization type'
+    printf '=== Kernel config: CONFIG_X86_INTEL_TSX ===\n'
+    grep CONFIG_X86_INTEL_TSX "/boot/config-$(uname -r)" 2>/dev/null || echo '(not found)'
+    printf '=== TAA mitigation ===\n'
+    cat /sys/devices/system/cpu/vulnerabilities/tsx_async_abort 2>/dev/null || echo '(not found)'
+    printf '=== saptune grub:tsx note sections ===\n'
+    for n in 3577842 2684254; do
+      f="/usr/share/saptune/notes/$n"
+      [ -f "$f" ] && grep -E '^\[grub|^tsx=' "$f"
+    done
+    true
+  register: tsx_diag
+  changed_when: false
+  failed_when: false
+  when:
+    - ansible_facts.packages['saptune'][0].version is version('3.2.3', '>=')
+    - ansible_distribution_major_version == '16'
+
+- name: Show TSX diagnostic information
+  ansible.builtin.debug:
+    var: tsx_diag.stdout_lines
+  when:
+    - ansible_facts.packages['saptune'][0].version is version('3.2.3', '>=')
+    - ansible_distribution_major_version == '16'
+
 # WORKAROUND for SAP Note 3577842 grub:tsx on cloud VMs (TEAM-11186, bsc#1263100).
 #
 # saptune >= 3.2.3 on SLES 16 checks that tsx=auto appears in /proc/cmdline.
