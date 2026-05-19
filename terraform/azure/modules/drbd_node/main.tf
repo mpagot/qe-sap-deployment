@@ -14,10 +14,7 @@ resource "azurerm_availability_set" "drbd-availability-set" {
   resource_group_name         = var.resource_group_name
   managed                     = "true"
   platform_fault_domain_count = 2
-
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags                        = var.tags
 }
 
 # drbd load balancer items
@@ -35,9 +32,7 @@ resource "azurerm_lb" "drbd-load-balancer" {
     private_ip_address            = var.common_variables["drbd"]["cluster_vip"]
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 resource "azurerm_lb_backend_address_pool" "drbd-backend-pool" {
@@ -119,10 +114,7 @@ resource "azurerm_public_ip" "drbd" {
   resource_group_name     = var.resource_group_name
   allocation_method       = "Static"
   idle_timeout_in_minutes = 30
-
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags                    = var.tags
 }
 
 resource "azurerm_network_interface" "drbd" {
@@ -139,9 +131,7 @@ resource "azurerm_network_interface" "drbd" {
     public_ip_address_id          = element(azurerm_public_ip.drbd.*.id, count.index)
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 # drbd custom image. only available is drbd_image_uri is used
@@ -160,9 +150,7 @@ resource "azurerm_image" "drbd-image" {
     storage_type = "Premium_LRS"
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 # drbd instances
@@ -180,6 +168,7 @@ resource "azurerm_managed_disk" "drbd_data_disk" {
   storage_account_type = "Standard_LRS"
   create_option        = "Empty"
   disk_size_gb         = 10
+  tags                 = var.tags
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "drbd_data_disk_attachment" {
@@ -228,7 +217,5 @@ resource "azurerm_linux_virtual_machine" "drbd" {
     storage_account_uri = var.storage_account
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }

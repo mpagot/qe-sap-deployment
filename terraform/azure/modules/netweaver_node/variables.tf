@@ -163,3 +163,9 @@ variable "netweaver_anf_quota_sapmnt" {
   description = "Quota for ANF shared storage volume Netweaver"
   type        = number
 }
+
+variable "tags" {
+  description = "A map of tags to add to all resources in this module"
+  type        = map(string)
+  default     = {}
+}

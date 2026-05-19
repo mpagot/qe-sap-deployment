@@ -30,10 +30,7 @@ resource "azurerm_availability_set" "hana-availability-set" {
   resource_group_name         = var.resource_group_name
   managed                     = "true"
   platform_fault_domain_count = 2 + local.create_scale_out
-
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags                        = var.tags
 }
 
 # hana load balancer items
@@ -62,9 +59,7 @@ resource "azurerm_lb" "hana-load-balancer" {
     }
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 # backend pools
@@ -168,9 +163,7 @@ resource "azurerm_network_interface" "hana" {
     public_ip_address_id          = element(azurerm_public_ip.hana.*.id, count.index)
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 resource "azurerm_public_ip" "hana" {
@@ -180,10 +173,7 @@ resource "azurerm_public_ip" "hana" {
   resource_group_name     = var.resource_group_name
   allocation_method       = "Static"
   idle_timeout_in_minutes = 30
-
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags                    = var.tags
 }
 
 resource "azurerm_image" "sles4sap" {
@@ -200,9 +190,7 @@ resource "azurerm_image" "sles4sap" {
     storage_type = "Premium_LRS"
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 # ANF volumes
@@ -240,6 +228,8 @@ resource "azurerm_netapp_volume" "hana-netapp-volume-data" {
   #   remote_volume_resource_id = azurerm_netapp_volume.example_primary.id
   #   replication_frequency     = "10minutes"
   # }
+
+  tags = var.tags
 }
 
 resource "azurerm_netapp_volume" "hana-netapp-volume-log" {
@@ -276,6 +266,8 @@ resource "azurerm_netapp_volume" "hana-netapp-volume-log" {
   #   remote_volume_resource_id = azurerm_netapp_volume.example_primary.id
   #   replication_frequency     = "10minutes"
   # }
+
+  tags = var.tags
 }
 
 resource "azurerm_netapp_volume" "hana-netapp-volume-backup" {
@@ -312,6 +304,8 @@ resource "azurerm_netapp_volume" "hana-netapp-volume-backup" {
   #   remote_volume_resource_id = azurerm_netapp_volume.example_primary.id
   #   replication_frequency     = "10minutes"
   # }
+
+  tags = var.tags
 }
 
 resource "azurerm_netapp_volume" "hana-netapp-volume-shared" {
@@ -348,6 +342,8 @@ resource "azurerm_netapp_volume" "hana-netapp-volume-shared" {
   #   remote_volume_resource_id = azurerm_netapp_volume.example_primary.id
   #   replication_frequency     = "10minutes"
   # }
+
+  tags = var.tags
 }
 
 
@@ -374,6 +370,7 @@ resource "azurerm_managed_disk" "hana_data_disk_01" {
   storage_account_type = element(local.disks_type, 0)
   create_option        = "Empty"
   disk_size_gb         = element(local.disks_size, 0)
+  tags                 = var.tags
 }
 
 resource "azurerm_managed_disk" "hana_data_disk_02" {
@@ -384,6 +381,7 @@ resource "azurerm_managed_disk" "hana_data_disk_02" {
   storage_account_type = element(local.disks_type, 1)
   create_option        = "Empty"
   disk_size_gb         = element(local.disks_size, 1)
+  tags                 = var.tags
 }
 
 resource "azurerm_managed_disk" "hana_data_disk_03" {
@@ -394,6 +392,7 @@ resource "azurerm_managed_disk" "hana_data_disk_03" {
   storage_account_type = element(local.disks_type, 2)
   create_option        = "Empty"
   disk_size_gb         = element(local.disks_size, 2)
+  tags                 = var.tags
 }
 
 resource "azurerm_managed_disk" "hana_data_disk_04" {
@@ -404,6 +403,7 @@ resource "azurerm_managed_disk" "hana_data_disk_04" {
   storage_account_type = element(local.disks_type, 3)
   create_option        = "Empty"
   disk_size_gb         = element(local.disks_size, 3)
+  tags                 = var.tags
 }
 
 resource "azurerm_managed_disk" "hana_data_disk_05" {
@@ -414,6 +414,7 @@ resource "azurerm_managed_disk" "hana_data_disk_05" {
   storage_account_type = element(local.disks_type, 4)
   create_option        = "Empty"
   disk_size_gb         = element(local.disks_size, 4)
+  tags                 = var.tags
 }
 
 resource "azurerm_managed_disk" "hana_data_disk_06" {
@@ -424,6 +425,7 @@ resource "azurerm_managed_disk" "hana_data_disk_06" {
   storage_account_type = element(local.disks_type, 5)
   create_option        = "Empty"
   disk_size_gb         = element(local.disks_size, 5)
+  tags                 = var.tags
 }
 
 resource "azurerm_managed_disk" "hana_data_disk_07" {
@@ -434,6 +436,7 @@ resource "azurerm_managed_disk" "hana_data_disk_07" {
   storage_account_type = element(local.disks_type, 6)
   create_option        = "Empty"
   disk_size_gb         = element(local.disks_size, 6)
+  tags                 = var.tags
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "hana_data_disk_attachment_01" {
@@ -651,9 +654,7 @@ resource "azurerm_linux_virtual_machine" "hana" {
     storage_account_uri = var.storage_account
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 module "hana_majority_maker" {
@@ -678,4 +679,5 @@ module "hana_majority_maker" {
   tenant_id                 = var.tenant_id
   fence_agent_app_id        = var.fence_agent_app_id
   fence_agent_client_secret = var.fence_agent_client_secret
+  tags                      = var.tags
 }

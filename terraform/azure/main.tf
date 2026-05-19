@@ -119,6 +119,7 @@ module "drbd_node" {
   tenant_id                 = data.azurerm_subscription.current.tenant_id
   fence_agent_app_id        = var.fence_agent_app_id
   fence_agent_client_secret = var.fence_agent_client_secret
+  tags                      = local.tags
 }
 
 module "netweaver_node" {
@@ -157,6 +158,7 @@ module "netweaver_node" {
   tenant_id                 = data.azurerm_subscription.current.tenant_id
   fence_agent_app_id        = var.fence_agent_app_id
   fence_agent_client_secret = var.fence_agent_client_secret
+  tags                      = local.tags
 }
 
 module "hana_node" {
@@ -191,6 +193,7 @@ module "hana_node" {
   tenant_id                 = data.azurerm_subscription.current.tenant_id
   fence_agent_app_id        = var.fence_agent_app_id
   fence_agent_client_secret = var.fence_agent_client_secret
+  tags                      = local.tags
   # passed to majority_maker module
   majority_maker_vm_size = var.hana_majority_maker_vm_size
   majority_maker_ip      = local.hana_majority_maker_ip
@@ -210,6 +213,7 @@ module "monitoring" {
   monitoring_uri      = local.monitoring_os_image_uri
   os_image            = local.monitoring_os_image
   monitoring_srv_ip   = local.monitoring_ip
+  tags                = local.tags
 }
 
 module "iscsi_server" {
@@ -228,4 +232,5 @@ module "iscsi_server" {
   host_ips            = local.iscsi_ips
   lun_count           = var.iscsi_lun_count
   iscsi_disk_size     = var.iscsi_disk_size
+  tags                = local.tags
 }

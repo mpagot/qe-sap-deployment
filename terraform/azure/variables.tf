@@ -908,3 +908,9 @@ variable "allowed_ssh_cidr_csv" {
     error_message = "The value must be a valid CIDR or a comma-separated list of valid CIDRs."
   }
 }
+
+variable "custom_tags" {
+  description = "Optional custom tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
