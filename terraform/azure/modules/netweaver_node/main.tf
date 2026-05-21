@@ -36,10 +36,7 @@ resource "azurerm_availability_set" "netweaver-xscs-availability-set" {
   resource_group_name         = var.resource_group_name
   managed                     = "true"
   platform_fault_domain_count = 2
-
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags                        = var.tags
 }
 
 resource "azurerm_availability_set" "netweaver-app-availability-set" {
@@ -50,10 +47,7 @@ resource "azurerm_availability_set" "netweaver-app-availability-set" {
   managed                      = "true"
   platform_fault_domain_count  = 2
   platform_update_domain_count = 10
-
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags                         = var.tags
 }
 
 # netweaver load balancer items
@@ -78,9 +72,7 @@ resource "azurerm_lb" "netweaver-load-balancer" {
     private_ip_address            = element(var.virtual_host_ips, 1)
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 # backend pools
@@ -196,10 +188,7 @@ resource "azurerm_public_ip" "netweaver" {
   resource_group_name     = var.resource_group_name
   allocation_method       = "Static"
   idle_timeout_in_minutes = 30
-
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags                    = var.tags
 }
 
 resource "azurerm_network_interface" "netweaver" {
@@ -253,9 +242,7 @@ resource "azurerm_network_interface" "netweaver" {
     }
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 # netweaver custom image. only available is netweaver_image_uri is used
@@ -274,9 +261,7 @@ resource "azurerm_image" "netweaver-image" {
     storage_type = "Premium_LRS"
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 # ANF volumes
@@ -314,6 +299,8 @@ resource "azurerm_netapp_volume" "netweaver-netapp-volume-sapmnt" {
   #   remote_volume_resource_id = azurerm_netapp_volume.example_primary.id
   #   replication_frequency     = "10minutes"
   # }
+
+  tags = var.tags
 }
 
 # APP server disk
@@ -326,6 +313,7 @@ resource "azurerm_managed_disk" "app_server_disk" {
   storage_account_type = var.data_disk_type
   create_option        = "Empty"
   disk_size_gb         = var.data_disk_size
+  tags                 = var.tags
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "app_server_disk" {
@@ -384,7 +372,5 @@ resource "azurerm_linux_virtual_machine" "netweaver" {
     storage_account_uri = var.storage_account
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }

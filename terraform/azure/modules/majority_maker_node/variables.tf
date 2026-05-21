@@ -86,3 +86,9 @@ variable "fence_agent_client_secret" {
   description = "Secret for the azure service principal / application that is used for native fencing."
   type        = string
 }
+
+variable "tags" {
+  description = "A map of tags to add to all resources in this module"
+  type        = map(string)
+  default     = {}
+}

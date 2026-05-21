@@ -174,3 +174,9 @@ variable "disk_attachment_delay" {
   description = "Time to wait between disk attachments."
   default     = "10s"
 }
+
+variable "tags" {
+  description = "A map of tags to add to all resources in this module"
+  type        = map(string)
+  default     = {}
+}

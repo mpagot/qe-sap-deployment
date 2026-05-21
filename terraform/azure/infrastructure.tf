@@ -53,6 +53,11 @@ locals {
     for s in split(",", var.allowed_ssh_cidr_csv) : trimspace(s)
     if trimspace(s) != ""
   ]
+
+  base_tags = {
+    workspace = local.deployment_name
+  }
+  tags = merge(local.base_tags, var.custom_tags)
 }
 
 # Azure resource group and storage account resources. Create one here
@@ -61,6 +66,7 @@ resource "azurerm_resource_group" "myrg" {
   count    = var.resource_group_name == "" ? 1 : 0
   name     = "rg-ha-sap-${local.deployment_name}"
   location = var.az_region
+  tags     = local.tags
 }
 
 resource "azurerm_storage_account" "mytfstorageacc" {
@@ -69,10 +75,7 @@ resource "azurerm_storage_account" "mytfstorageacc" {
   location                 = var.az_region
   account_replication_type = "LRS"
   account_tier             = "Standard"
-
-  tags = {
-    workspace = local.deployment_name
-  }
+  tags                     = local.tags
 }
 
 # Network resources: Virtual Network, Subnet, Netapp Subnet
@@ -82,10 +85,7 @@ resource "azurerm_virtual_network" "mynet" {
   address_space       = [local.vnet_address_range]
   location            = var.az_region
   resource_group_name = local.resource_group_name
-
-  tags = {
-    workspace = local.deployment_name
-  }
+  tags                = local.tags
 }
 
 resource "azurerm_subnet" "mysubnet" {
@@ -119,9 +119,7 @@ resource "azurerm_route_table" "myroutes" {
     next_hop_type  = "VnetLocal"
   }
 
-  tags = {
-    workspace = local.deployment_name
-  }
+  tags = local.tags
 }
 
 # Azure Netapp Files resources (see README for ANF setup)
@@ -155,6 +153,7 @@ resource "azurerm_netapp_account" "mynetapp-acc" {
   name                = "netapp-acc-${lower(local.deployment_name)}"
   resource_group_name = local.resource_group_name
   location            = var.az_region
+  tags                = local.tags
 }
 
 resource "azurerm_netapp_pool" "mynetapp-pool" {
@@ -165,6 +164,7 @@ resource "azurerm_netapp_pool" "mynetapp-pool" {
   resource_group_name = local.resource_group_name
   service_level       = var.anf_pool_service_level
   size_in_tb          = var.anf_pool_size
+  tags                = local.tags
 }
 
 # Security group
@@ -315,9 +315,7 @@ resource "azurerm_network_security_group" "mysecgroup" {
     destination_address_prefix = "*"
   }
 
-  tags = {
-    workspace = local.deployment_name
-  }
+  tags = local.tags
 }
 
 # IBSM

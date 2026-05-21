@@ -20,9 +20,7 @@ resource "azurerm_network_interface" "majority_maker" {
     public_ip_address_id          = element(azurerm_public_ip.majority_maker.*.id, count.index)
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 resource "azurerm_public_ip" "majority_maker" {
@@ -32,10 +30,7 @@ resource "azurerm_public_ip" "majority_maker" {
   resource_group_name     = var.resource_group_name
   allocation_method       = "Static"
   idle_timeout_in_minutes = 30
-
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags                    = var.tags
 }
 
 # majority maker instance
@@ -54,9 +49,7 @@ resource "azurerm_image" "sles4sap" {
     storage_type = "Premium_LRS"
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 module "os_image_reference" {
@@ -104,7 +97,5 @@ resource "azurerm_linux_virtual_machine" "majority_maker" {
     storage_account_uri = var.storage_account
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }

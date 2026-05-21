@@ -19,9 +19,7 @@ resource "azurerm_network_interface" "iscsisrv" {
     public_ip_address_id          = element(azurerm_public_ip.iscsisrv.*.id, count.index)
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 resource "azurerm_public_ip" "iscsisrv" {
@@ -31,10 +29,7 @@ resource "azurerm_public_ip" "iscsisrv" {
   resource_group_name     = var.resource_group_name
   allocation_method       = "Static"
   idle_timeout_in_minutes = 30
-
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags                    = var.tags
 }
 
 # iscsi server custom image. only available if iscsi_image_uri is used
@@ -53,9 +48,7 @@ resource "azurerm_image" "iscsi_srv" {
     storage_type = "Premium_LRS"
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 # iSCSI server VM
@@ -73,6 +66,7 @@ resource "azurerm_managed_disk" "iscsisrv_data" {
   storage_account_type = "StandardSSD_LRS"
   create_option        = "Empty"
   disk_size_gb         = var.iscsi_disk_size
+  tags                 = var.tags
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "iscsisrv_data" {
@@ -121,7 +115,5 @@ resource "azurerm_linux_virtual_machine" "iscsisrv" {
     storage_account_uri = var.storage_account
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }

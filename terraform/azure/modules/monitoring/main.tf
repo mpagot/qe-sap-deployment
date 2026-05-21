@@ -19,9 +19,7 @@ resource "azurerm_network_interface" "monitoring" {
     public_ip_address_id          = azurerm_public_ip.monitoring.0.id
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 resource "azurerm_public_ip" "monitoring" {
@@ -31,10 +29,7 @@ resource "azurerm_public_ip" "monitoring" {
   resource_group_name     = var.resource_group_name
   allocation_method       = "Static"
   idle_timeout_in_minutes = 30
-
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags                    = var.tags
 }
 
 # monitoring custom image. only available if monitoring_image_uri is used
@@ -53,9 +48,7 @@ resource "azurerm_image" "monitoring" {
     storage_type = "Premium_LRS"
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
 
 # monitoring VM
@@ -73,6 +66,7 @@ resource "azurerm_managed_disk" "monitoring_data" {
   storage_account_type = "Standard_LRS"
   create_option        = "Empty"
   disk_size_gb         = 10
+  tags                 = var.tags
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "monitoring_data" {
@@ -120,7 +114,5 @@ resource "azurerm_linux_virtual_machine" "monitoring" {
     storage_account_uri = var.storage_account
   }
 
-  tags = {
-    workspace = var.common_variables["deployment_name"]
-  }
+  tags = var.tags
 }
