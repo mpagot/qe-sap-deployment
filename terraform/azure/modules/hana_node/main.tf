@@ -7,20 +7,8 @@ locals {
   sites                      = var.common_variables["hana"]["ha_enabled"] ? 2 : 1
   create_active_active_infra = local.create_ha_infra == 1 && var.common_variables["hana"]["cluster_vip_secondary"] != "" ? 1 : 0
   provisioning_addresses     = data.azurerm_public_ip.hana.*.ip_address
-  hana_lb_rules_ports = local.create_ha_infra == 1 ? toset([
-    "3${var.hana_instance_number}13",
-    "3${var.hana_instance_number}14",
-    "3${var.hana_instance_number}40",
-    "3${var.hana_instance_number}41",
-    "3${var.hana_instance_number}42",
-    "3${var.hana_instance_number}15",
-    "3${var.hana_instance_number}17",
-    "5${var.hana_instance_number}13" # S4HANA DB import checks sapctrl port
-  ]) : toset([])
-
-  hana_lb_rules_ports_secondary = local.create_active_active_infra == 1 ? local.hana_lb_rules_ports : toset([])
-  hostname                      = var.common_variables["deployment_name_in_hostname"] ? format("%s-%s", var.common_variables["deployment_name"], var.name) : var.name
-  disk_attachment_delay         = coalesce(var.disk_attachment_delay, "10s")
+  hostname                   = var.common_variables["deployment_name_in_hostname"] ? format("%s-%s", var.common_variables["deployment_name"], var.name) : var.name
+  disk_attachment_delay      = coalesce(var.disk_attachment_delay, "10s")
 }
 
 resource "azurerm_availability_set" "hana-availability-set" {
@@ -100,35 +88,31 @@ resource "azurerm_lb_probe" "hana-load-balancer-secondary" {
 }
 
 # Load balancing rules for HANA 2.0
-resource "azurerm_lb_rule" "hana-lb-rules" {
-  for_each = local.hana_lb_rules_ports
-  #resource_group_name            = var.resource_group_name
+module "hana_primary_lb_rules" {
+  source = "./lb_rules_chain"
+  count  = local.create_ha_infra == 1 ? 1 : 0
+
   loadbalancer_id                = azurerm_lb.hana-load-balancer[0].id
-  name                           = "lbrule-hana-tcp-${each.value}"
-  protocol                       = "Tcp"
-  frontend_ip_configuration_name = "lbfe-hana"
-  frontend_port                  = tonumber(each.value)
-  backend_port                   = tonumber(each.value)
-  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.hana-load-balancer[0].id]
+  hana_instance_number           = var.hana_instance_number
+  backend_address_pool_id        = azurerm_lb_backend_address_pool.hana-load-balancer[0].id
   probe_id                       = azurerm_lb_probe.hana-load-balancer[0].id
-  idle_timeout_in_minutes        = 30
-  floating_ip_enabled            = "true"
+  frontend_ip_configuration_name = "lbfe-hana"
+  name_suffix                    = ""
 }
 
 # Load balancing rules for the Active/Active setup
-resource "azurerm_lb_rule" "hana-lb-rules-secondary" {
-  for_each = local.hana_lb_rules_ports_secondary
-  #resource_group_name            = var.resource_group_name
+module "hana_secondary_lb_rules" {
+  source = "./lb_rules_chain"
+  count  = local.create_active_active_infra == 1 ? 1 : 0
+
   loadbalancer_id                = azurerm_lb.hana-load-balancer[0].id
-  name                           = "lbrule-hana-tcp-${each.value}-secondary"
-  protocol                       = "Tcp"
-  frontend_ip_configuration_name = "lbfe-hana-secondary"
-  frontend_port                  = tonumber(each.value)
-  backend_port                   = tonumber(each.value)
-  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.hana-load-balancer[0].id]
+  hana_instance_number           = var.hana_instance_number
+  backend_address_pool_id        = azurerm_lb_backend_address_pool.hana-load-balancer[0].id
   probe_id                       = azurerm_lb_probe.hana-load-balancer-secondary[0].id
-  idle_timeout_in_minutes        = 30
-  floating_ip_enabled            = "true"
+  frontend_ip_configuration_name = "lbfe-hana-secondary"
+  name_suffix                    = "-secondary"
+
+  depends_on = [module.hana_primary_lb_rules]
 }
 
 resource "azurerm_lb_rule" "hanadb_exporter" {
