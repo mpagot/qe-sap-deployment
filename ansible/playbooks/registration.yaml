@@ -22,21 +22,45 @@
       ansible.builtin.command: which SUSEConnect
       changed_when: false
 
-    - name: Check for image type with instance-flavor-check
+    - name: Run instance-flavor-check
       ansible.builtin.command: instance-flavor-check
       register: flavor
-      failed_when: flavor.rc not in [10, 11, 12]
+      failed_when: false
       changed_when: false
       when: ifc_bin.rc == 0
+
+    - name: Classify instance-flavor-check outcome
+      ansible.builtin.set_fact:
+        flavor_ok: "{{ flavor.rc in [10, 11, 12] and (('BYOS' in flavor.stdout) or ('PAYG' in flavor.stdout)) }}"
+        flavor_known_bug: "{{ flavor.rc == 1 and 'FileNotFoundError: [Errno 2] No such file or directory' in flavor.stderr }}"
+      when: ifc_bin.rc == 0
+
+    - name: Fail on unexpected instance-flavor-check result
+      ansible.builtin.fail:
+        msg: "instance-flavor-check unexpected result: rc={{ flavor.rc }} stdout={{ flavor.stdout }} stderr={{ flavor.stderr }}"
+      when:
+        - ifc_bin.rc == 0
+        - not flavor_ok
+        - not flavor_known_bug
+
+    - name: Softfail for instance-flavor-check FileNotFoundError crash
+      ansible.builtin.debug:
+        msg:
+          - "[OSADO][softfail] bsc#1267739 instance-flavor-check crashed with FileNotFoundError"
+          - "Falling back to SUSEConnect -s to detect registration status"
+      when:
+        - ifc_bin.rc == 0
+        - flavor_known_bug
 
     - name: Set registration flag based on instance-flavor-check
       ansible.builtin.set_fact:
         to_be_registered: "{{ 'BYOS' in flavor.stdout }}"
-      when: ifc_bin.rc == 0
+      when:
+        - ifc_bin.rc == 0
+        - flavor_ok
 
-    # If instance-flavor-check is not available
-    # try to figure it out if image is PAYG or BYOS looking
-    # for not registered repos
+    # Fallback to SUSEConnect when instance-flavor-check is missing
+    # or hit the bsc#1267739 crash
     - name: Check for registration
       ansible.builtin.command: SUSEConnect -s
       register: repos
@@ -45,13 +69,12 @@
       delay: 120
       failed_when: repos.rc != 0
       changed_when: false
-      when: ifc_bin.rc != 0
+      when: ifc_bin.rc != 0 or (flavor_known_bug | default(false))
 
-    # Check if there are instances of `Not Registered` in it
     - name: Check for 'Not Registered'
       ansible.builtin.set_fact:
         to_be_registered: "{{ 'Not Registered' in repos.stdout }}"
-      when: ifc_bin.rc != 0
+      when: ifc_bin.rc != 0 or (flavor_known_bug | default(false))
 
     # Is registercloudguest available?
     # Only check about it if there any chance that it needs to be used
