@@ -143,18 +143,18 @@
 
     - name: Get legacy site lss status
       ansible.builtin.set_fact:
-        hana_prevalidate_online_sites: "{{ hana_prevalidate_hana_sr_attrs.Site.values() | selectattr('lss', 'in', ['4', 'online']) | list }}"
+        hana_prevalidate_online_sites: "{{ hana_prevalidate_hana_sr_attrs.Site.values() | selectattr('lss', 'defined') | selectattr('lss', 'in', ['4', 'online']) | list }}"
       when: not hana_prevalidate_pacemaker_ge_2_1_7
 
     - name: Get modern site lss status
       ansible.builtin.set_fact:
-        hana_prevalidate_online_sites: "{{ hana_prevalidate_hana_sr_attrs.Site.values() | selectattr('lss', 'regex', '^[0-9]+$') | list }}"
+        hana_prevalidate_online_sites: "{{ hana_prevalidate_hana_sr_attrs.Site.values() | selectattr('lss', 'defined') | selectattr('lss', 'regex', '^[0-9]+$') | list }}"
       when: hana_prevalidate_pacemaker_ge_2_1_7
 
     - name: Get site srPoll status
       ansible.builtin.set_fact:
-        hana_prevalidate_prim_sites: "{{ hana_prevalidate_hana_sr_attrs.Site.values() | selectattr('srPoll', 'equalto', 'PRIM') | list }}"
-        hana_prevalidate_sok_sites: "{{ hana_prevalidate_hana_sr_attrs.Site.values() | selectattr('srPoll', 'equalto', 'SOK') | list }}"
+        hana_prevalidate_prim_sites: "{{ hana_prevalidate_hana_sr_attrs.Site.values() | selectattr('srPoll', 'defined') | selectattr('srPoll', 'equalto', 'PRIM') | list }}"
+        hana_prevalidate_sok_sites: "{{ hana_prevalidate_hana_sr_attrs.Site.values() | selectattr('srPoll', 'defined') | selectattr('srPoll', 'equalto', 'SOK') | list }}"
 
     - name: "Assert all HANA sites are online"
       ansible.builtin.assert:
