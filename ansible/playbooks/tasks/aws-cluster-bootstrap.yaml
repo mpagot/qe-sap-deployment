@@ -78,7 +78,7 @@
     cmd: >-
       crm configure primitive
       rsc_ip_{{ sap_hana_install_sid }}_HDB{{ sap_hana_install_instance_number }}
-      ocf:suse:aws-vpc-move-ip params
+      ocf:heartbeat:aws-vpc-move-ip params
       ip={{ cluster_ip }}
       routing_table={{ aws_route_table_id }}
       interface=eth0
