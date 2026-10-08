@@ -1,0 +1,259 @@
+---
+# TEMPORARY DEBUG TASKS. DO NOT MERGE.
+#
+# Purpose: find why ocf:suse:aws-vpc-move-ip fails on SLE 16 on AWS.
+# On SLE 16 the "aws" command is a flake-pilot launcher. It runs the AWS CLI
+# in a podman container (localhost/aws-sdk). When pacemaker runs the agent,
+# "podman create" fails and the colored error text (ANSI ESC bytes) breaks
+# the pacemaker IPC XML.
+#
+# Questions that these tasks answer:
+#   Q1. What is the full podman-pilot ExecutionError text?
+#   Q2. Does "aws" work with HOME set and fail without HOME?
+#   Q3. Does "aws" fail in a systemd service context (same as pacemaker)?
+#   Q4. Does HOME=/root in the service context fix it?
+#   Q5. Does NO_COLOR or TERM=dumb remove the ESC bytes?
+#   Q6. Which environment does pacemaker-execd give to the agents?
+#   Q7. Which aws command line does the agent run (agent source and trace)?
+#
+# Rules for all tasks in this file:
+#   - Read-only. No change to the cluster, to routes or to configuration files.
+#   - Each command has a timeout.
+#   - No task can fail the play (failed_when: false, block/rescue).
+#   - Secrets are redacted before they are printed.
+#
+# Variables:
+#   dbg_phase - "pre": before the cluster IP resource is created.
+#               "post": after the cluster IP resource is created.
+
+- name: Debug flake aws [{{ dbg_phase | default('pre') }}]
+  block:
+    - name: Set debug helper facts
+      ansible.builtin.set_fact:
+        dbg_rtb: "{{ aws_route_table_id | default('rtb-unknown') }}"
+        dbg_ip: "{{ cluster_ip | default('192.168.1.4') }}"
+        # run <cmd...>: print the command, the rc, the count of ESC bytes in
+        # stderr, and stderr with ESC shown as <ESC>. All output goes to stdout.
+        dbg_helpers: |
+          set -o pipefail
+          export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+          run() {
+            echo "+ $*"
+            timeout 120 "$@" >/tmp/qesap_dbg/out 2>/tmp/qesap_dbg/err
+            rc=$?
+            echo "rc=$rc"
+            echo "esc_bytes_in_stderr=$(tr -cd '\033' </tmp/qesap_dbg/err | wc -c)"
+            echo "--- stdout:"
+            sed 's/\x1b/<ESC>/g' /tmp/qesap_dbg/out | head -n 300
+            echo "--- stderr (ESC shown as <ESC>):"
+            sed 's/\x1b/<ESC>/g' /tmp/qesap_dbg/err | head -n 600
+            echo "--- end"
+          }
+
+    - name: Create debug work directory
+      ansible.builtin.file:
+        path: /tmp/qesap_dbg
+        state: directory
+        mode: '0755'
+      changed_when: false
+      failed_when: false
+
+    # Script that runs the same aws command as the agent monitor.
+    # Same arguments as the agent: no --region, the region comes from the profile.
+    - name: Write aws call script
+      ansible.builtin.copy:
+        dest: /tmp/qesap_dbg/aws_call.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          echo "== id: $(id)"
+          # printenv shows only exported values. Bash sets TERM=dumb internally.
+          for v in HOME XDG_RUNTIME_DIR TERM NO_COLOR; do
+            echo "== $v='$(printenv $v || echo '<unset>')'"
+          done
+          echo "== PWD='${PWD}'"
+          echo "== env:"
+          env | sort | grep -v -iE 'secret|token|password|key'
+          echo "== aws call:"
+          aws --profile default --output text --cli-connect-timeout 10 --cli-read-timeout 20 \
+            ec2 describe-route-tables --route-table-ids {{ dbg_rtb }} \
+            --query "RouteTables[*].Routes[?DestinationCidrBlock=='{{ dbg_ip }}/32'].InstanceId"
+          rc=$?
+          echo "aws_rc=$rc"
+          exit $rc
+      changed_when: false
+      failed_when: false
+      when: dbg_phase | default('pre') == 'pre'
+
+    # Script that runs the agent monitor as a probe (interval 0).
+    # The probe always makes the API call. monitor is read-only.
+    # Argument "trace" enables the OCF shell trace to stderr.
+    - name: Write agent probe script
+      ansible.builtin.copy:
+        dest: /tmp/qesap_dbg/agent_probe.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          export OCF_ROOT=/usr/lib/ocf
+          export OCF_RESOURCE_INSTANCE=qesap_dbg_ip
+          export OCF_RESOURCE_TYPE=aws-vpc-move-ip
+          export OCF_RESOURCE_PROVIDER=suse
+          export OCF_RESKEY_ip={{ dbg_ip }}
+          export OCF_RESKEY_routing_table={{ dbg_rtb }}
+          export OCF_RESKEY_interface=eth0
+          export OCF_RESKEY_profile=default
+          export OCF_RESKEY_monapi=true
+          export OCF_RESKEY_CRM_meta_interval=0
+          export OCF_RESKEY_CRM_meta_timeout=60000
+          if [ "$1" = "trace" ]; then
+            export OCF_TRACE_RA=1 OCF_RESKEY_trace_ra=1
+            export OCF_TRACE_FILE=/dev/stderr OCF_RESKEY_trace_file=/dev/stderr
+          fi
+          echo "== HOME='$(printenv HOME || echo '<unset>')' PWD='${PWD}'"
+          /usr/lib/ocf/resource.d/suse/aws-vpc-move-ip monitor
+          rc=$?
+          echo "agent_rc=$rc (7 = not running, 0 = running, 1 = error)"
+          exit $rc
+      changed_when: false
+      failed_when: false
+      when: dbg_phase | default('pre') == 'pre'
+
+    - name: Run debug spikes [pre]
+      ansible.builtin.shell:
+        executable: /bin/bash
+        cmd: |
+          {{ dbg_helpers }}
+          echo "##### {{ item.name }}"
+          {{ item.cmd }}
+      loop:
+        - name: S01 packages and the aws binary
+          cmd: |
+            rpm -q pacemaker resource-agents flake-pilot flake-pilot-podman aws-cli-cmd aws-cli-image aws-sdk-image podman 2>&1
+            ls -la /usr/bin/aws 2>&1
+            echo "readlink: $(readlink -f /usr/bin/aws 2>&1)"
+            echo "rpm -qf: $(rpm -qf /usr/bin/aws 2>&1)"
+        - name: S02 flake configuration (where --volume $HOME:$HOME comes from)
+          cmd: |
+            rpm -ql aws-cli-cmd 2>&1
+            ls -la /usr/share/flakes /etc/flakes 2>&1
+            for f in /usr/share/flakes/aws.yaml /usr/share/flakes/aws.d/* /etc/flakes/*.yaml; do
+              [ -f "$f" ] && { echo "=== $f"; cat "$f"; }
+            done
+            true
+        - name: S03 flake images and containers
+          cmd: |
+            run env CONTAINERS_STORAGE_CONF=/etc/flakes/storage.conf podman images
+            run env CONTAINERS_STORAGE_CONF=/etc/flakes/storage.conf podman ps -a
+        - name: S04 agent source (aws command and probe logic)
+          cmd: |
+            A=/usr/lib/ocf/resource.d/suse/aws-vpc-move-ip
+            echo "rpm -qf: $(rpm -qf $A 2>&1)"
+            grep -n -E 'awscli_default=|AWSCLI_CMD=|describe-route-tables|ocf_is_probe|monapi|HOME' $A 2>&1
+        - name: S05 pacemaker-execd environment (is HOME set for agents?)
+          cmd: |
+            systemctl show pacemaker.service -p User -p Environment -p EnvironmentFiles -p WorkingDirectory 2>&1
+            for p in $(pidof pacemaker-execd); do
+              echo "=== /proc/$p/environ"
+              tr '\0' '\n' </proc/$p/environ | sort | grep -v -iE 'secret|token|password|key'
+            done
+        - name: S06 AWS profile files (redacted) and instance IAM role
+          cmd: |
+            ls -la /root/.aws 2>&1
+            echo "=== /root/.aws/config"
+            sed -E 's/^([^=]*(key|secret|token)[^=]*=).*/\1<redacted>/I' /root/.aws/config 2>&1
+            echo "=== /root/.aws/credentials (values redacted)"
+            sed -E 's/^([^=]+=).*/\1<redacted>/' /root/.aws/credentials 2>&1
+            T=$(curl -s -m 5 -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 60')
+            echo "=== IMDS iam/info"
+            curl -s -m 5 -H "X-aws-ec2-metadata-token: $T" http://169.254.169.254/latest/meta-data/iam/info 2>&1
+            echo
+        - name: S07 aws from the Ansible shell (HOME set)
+          cmd: |
+            run /tmp/qesap_dbg/aws_call.sh
+        - name: S08 aws with empty environment, no HOME (Q1, Q2)
+          cmd: |
+            run env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin /tmp/qesap_dbg/aws_call.sh
+        - name: S09 aws with empty environment, HOME=/root (Q2)
+          cmd: |
+            run env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root /tmp/qesap_dbg/aws_call.sh
+        - name: S10 aws with no HOME, NO_COLOR=1 TERM=dumb (Q5)
+          cmd: |
+            run env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin NO_COLOR=1 TERM=dumb /tmp/qesap_dbg/aws_call.sh
+        - name: S11 aws with no HOME, flake-pilot debug variables
+          cmd: |
+            run env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin PILOT_DEBUG=1 RUST_LOG=debug RUST_BACKTRACE=1 /tmp/qesap_dbg/aws_call.sh
+        - name: S12 aws in a systemd service context, like pacemaker (Q3)
+          cmd: |
+            run systemd-run --quiet --wait --pipe --collect -p TimeoutStopSec=10 /tmp/qesap_dbg/aws_call.sh
+        - name: S13 aws in a systemd service context with HOME=/root (Q4)
+          cmd: |
+            run systemd-run --quiet --wait --pipe --collect -p TimeoutStopSec=10 -E HOME=/root /tmp/qesap_dbg/aws_call.sh
+        - name: S14 agent probe in a systemd service context, with trace (Q7)
+          cmd: |
+            run systemd-run --quiet --wait --pipe --collect -p TimeoutStopSec=10 /tmp/qesap_dbg/agent_probe.sh trace
+        - name: S15 agent probe in a systemd service context with HOME=/root (Q4)
+          cmd: |
+            run systemd-run --quiet --wait --pipe --collect -p TimeoutStopSec=10 -E HOME=/root /tmp/qesap_dbg/agent_probe.sh
+      loop_control:
+        label: "{{ item.name }}"
+      register: dbg_pre
+      changed_when: false
+      failed_when: false
+      when: dbg_phase | default('pre') == 'pre'
+
+    - name: Print debug spikes [pre]
+      ansible.builtin.debug:
+        msg: "{{ item.stdout_lines | default([]) + (item.stderr_lines | default([])) }}"
+      loop: "{{ dbg_pre.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.name | default('n/a') }}"
+      when: dbg_phase | default('pre') == 'pre'
+
+    # The post phase reads the journal only from this time, so it does not
+    # show the podman calls of the spikes above.
+    - name: Mark end of pre phase
+      ansible.builtin.shell:
+        cmd: date +%s > /tmp/qesap_dbg/pre_end
+      changed_when: false
+      failed_when: false
+      when: dbg_phase | default('pre') == 'pre'
+
+    # The probe of the real resource ends in about 4 s. Its result is lost and
+    # pacemaker reports a timeout only after 2 min. 20 s is enough to see the
+    # podman and XML errors before "Locate cluster IP" stops the play.
+    - name: Collect real probe data [post]
+      ansible.builtin.shell:
+        executable: /bin/bash
+        cmd: |
+          set -o pipefail
+          {{ dbg_helpers }}
+          sleep 20
+          echo "##### P01 crm_mon"
+          timeout 30 crm_mon -1rf 2>&1
+          SINCE=$(cat /tmp/qesap_dbg/pre_end 2>/dev/null)
+          [[ "$SINCE" =~ ^[0-9]+$ ]] && SINCE="@$SINCE" || SINCE="-3min"
+          # The agent and its sudo and podman children run in the pacemaker.service
+          # cgroup. Ansible does not, so its own task text is not in this output.
+          echo "##### P02 journal of pacemaker.service since $SINCE: agent, execd, controld, podman, sudo"
+          timeout 30 journalctl -o short-precise --since "$SINCE" _SYSTEMD_UNIT=pacemaker.service 2>&1 \
+            | grep -a -E 'rsc_ip_|aws-vpc-move-ip|podman_pilot|ExecutionError|xmlChar|fatal assertion|COMMAND=/usr/bin/podman|podman\[' \
+            | sed 's/\x1b/<ESC>/g' | cut -c1-800 | tail -n 80
+          echo "##### P03 /tmp/flakes"
+          ls -laR /tmp/flakes 2>&1 | head -n 50
+          echo "##### P04 flake containers"
+          run env CONTAINERS_STORAGE_CONF=/etc/flakes/storage.conf podman ps -a
+          true
+      register: dbg_post
+      changed_when: false
+      failed_when: false
+      when: dbg_phase | default('pre') == 'post'
+
+    - name: Print real probe data [post]
+      ansible.builtin.debug:
+        msg: "{{ dbg_post.stdout_lines | default([]) }}"
+      when: dbg_phase | default('pre') == 'post'
+
+  rescue:
+    - name: Debug flake aws failed, continue
+      ansible.builtin.debug:
+        msg: "Debug tasks failed. The play continues. Error: {{ ansible_failed_result.msg | default('n/a') }}"

@@ -83,6 +83,15 @@
     disable_stonith_action: true
     set_sbd_stonith_timeout: 144
 
+# TEMPORARY DEBUG. DO NOT MERGE.
+- name: Debug flake aws before cluster IP
+  ansible.builtin.include_tasks: ./aws-debug-flake-aws.yaml
+  vars:
+    dbg_phase: pre
+  when:
+    - ansible_distribution_major_version is version('16', '>=')
+    - debug_flake_aws | default(true) | bool
+
 # AWS-specific cluster IP configuration using aws-vpc-move-ip.
 - name: Configure cluster IP
   ansible.builtin.command:
@@ -102,6 +111,15 @@
   when:
     - rsc_ip | length == 0
     - is_primary
+
+# TEMPORARY DEBUG. DO NOT MERGE.
+- name: Debug flake aws after cluster IP
+  ansible.builtin.include_tasks: ./aws-debug-flake-aws.yaml
+  vars:
+    dbg_phase: post
+  when:
+    - ansible_distribution_major_version is version('16', '>=')
+    - debug_flake_aws | default(true) | bool
 
 - name: Common VIP management
   ansible.builtin.include_tasks: ./cluster-bootstrap-vip.yaml
